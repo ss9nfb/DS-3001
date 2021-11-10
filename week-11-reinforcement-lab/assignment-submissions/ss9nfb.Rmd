@@ -1,0 +1,127 @@
+---
+title: "Reinforcement Lab"
+author: "Samarth Saxena"
+date: "11/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE,echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,echo=FALSE}
+library(tidyverse)
+library(devtools)
+library(caret)
+library(NbClust)
+library(plotly)
+library(htmltools)
+```
+
+# read in data and create the first dataframe (df1)
+```{r,echo=FALSE}
+df <- read_csv("C:/Users/Samarth Saxena/OneDrive - University of Virginia/College/Fall 2021/DS 3001/reinforcementlab/data-summary.csv")
+df1 <- select(df,main_colors,opp_colors,on_play,num_turns,won)
+```
+
+# feature engineering (cora,corc)
+```{r,echo=FALSE}
+df2 <- select(df,"deck_Adeline, Resplendent Cathar":"deck_Wrenn and Seven")
+mat = data.matrix(df2)
+vec1 <- vector()
+vec3 <- vector()
+for(i in 1:nrow(mat) ){
+  x<-cor( mat[1,] , mat[i,])
+  vec1 <- c(vec1,x)
+  z<-cor( mat[47,] , mat[i,])
+  vec3 <- c(vec3,z)
+}
+```
+
+# add new features to dataframe
+```{r,echo=FALSE}
+df1 <- df1 %>% mutate(cora = vec1)
+df1 <- df1 %>% mutate(corc = vec3)
+```
+
+# make scatter plot comparing new features
+```{r,echo=FALSE}
+clustered_data = df[, c("num_turns")]
+clustered_data <- na.omit(clustered_data)
+
+set.seed(1980)
+kmeans_obj= kmeans(clustered_data, centers = 6, 
+                        algorithm = "Lloyd")
+
+clusters = as.factor(kmeans_obj$cluster)
+
+
+ggplot(df, aes(x = vec1, 
+                            y = vec3,
+                            color = `num_turns`,
+                            shape = clusters)) + 
+  geom_point(size = 4) +
+  ggtitle("Corc vs Cora") +
+  xlab("Cora") +
+  ylab("Corc") +
+  scale_shape_manual(name = "Cluster", labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4", "Cluster 5", "Cluster 6"), values = c("1", "2", "3", "4", "5", "6")) + theme_dark()
+
+```
+
+## Determing the Variance of Different Amounts of Clusters Used 
+```{r,echo=FALSE}
+set.seed(1980)
+kmeans_obj2 = kmeans(clustered_data, centers = 3, algorithm = "Lloyd")
+
+# Inter-cluster variance.
+num3 = kmeans_obj2$betweenss
+
+# Total variance.
+denom3 = kmeans_obj2$totss
+
+# Variance accounted for by clusters.
+(var_exp3 = num3 / denom3)
+
+# variance goes up when using 3 clusters 
+
+# The function explained_variance wraps our code for calculating 
+# the variance explained by clustering.
+explained_variance = function(data_in, k){
+  
+  # Running the kmeans algorithm.
+  set.seed(1980)
+  kmeans_obj = kmeans(data_in, centers = k, algorithm = "Lloyd", iter.max = 30)
+  
+  # Variance accounted for by clusters:
+  # var_exp = intercluster variance / total variance
+  var_exp = kmeans_obj$betweenss / kmeans_obj$totss
+  var_exp 
+}
+  
+
+
+var = sapply(1:10, explained_variance, data_in = clustered_data)
+
+
+# Data for the second plot.
+elbow_data = data.frame(k = 1:10, var)
+```
+
+## Elbow Chart for Varying Amounts of Clusters
+```{r,echo=FALSE}
+#Create a elbow chart of the output '
+
+# Plotting data.
+ggplot(elbow_data, 
+       aes(x = k,  
+           y = var)) + 
+  geom_point(size = 4) +           #<- sets the size of the data points
+  geom_line(size = 1) +            #<- sets the thickness of the line
+  xlab('k') + 
+  ylab('Inter-cluster Variance / Total Variance') + 
+  theme_dark()
+```
+### What I looked up + What I learned
+After class, I looked up other clustering methods that are similar to kmeans and why we use kmeans over these other ones. It turns out that kmeans is by far the most efficient algorithm, running in O (knÄ²) time, where Ä² is the number of iterations. One of the next fastest algorithms, the Voronoi diagram, is constructed in O (n log n) time and takes to O (n log n) time to finish sorting all the 2n-5 (maximum) Voronoi vertices. Kmeans is much faster than the Voronoi diagram, and when working with millions of data tuples in a dataframe, every second saved compounds into hours saved. 
+
+I learned a lot from this reinforcement lab, but the thing that stuck with me the most was the ggplot advice. Before this class, I did not know there were so many input variables possible for the ggplot function.
